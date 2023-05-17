@@ -1,0 +1,110 @@
+%defining the function
+t=0:0.1:15;
+x=sin (0.2*pi*t);
+
+%sampling
+xsampled=x(1:2:end);
+
+%quantizing and calculating SQNR
+[xquantized,SQNR,levels]=Quantizer(xsampled,16);
+
+%encoding using fixed length
+encoder=0:1:15;
+xencoded=[];
+for i=1:1:length(xquantized)
+    y=find(levels==xquantized(i));
+    xencoded(i)=encoder(y);
+end
+
+%decoding fixed length
+decodedfix=[];
+
+for i=1:1:length(xencoded)
+    decodedfix(i)=levels(xencoded(i)+1);   
+end
+
+%checking if the decoded message is the same as the quantized one
+display(isequal(decodedfix,xquantized))
+
+%encoding in a diifrent way using huffman(source encoding)
+proability=[];
+for i=1:1:length(levels)
+    proability(i)= sum(xquantized==levels(i))/length(xquantized);
+end
+
+dictionary=huffmandict(levels,proability);
+code=huffmanenco(xquantized,dictionary);
+
+%decoding huffman
+decodedhuff=huffmandeco(code,dictionary);
+
+%checking if the decoded message is the same as the quantized one
+display(isequal(decodedhuff,xquantized))
+
+%calculating the efficiency  and the compression rate and displaying SQNR
+selfinfo=[-1.*proability.*log2(proability)];
+entropy=sum(selfinfo);
+avglength=0;
+for i=1:1:length(levels)
+    avglength=avglength+proability(i)*length(dictionary{i,2});
+end
+
+%SQNR
+SQNR
+
+%efficiency
+n=entropy/avglength
+
+%compression rate
+cr=ceil(log2(16))/avglength
+
+
+%Plotting the input and output signal on the same figure
+plot(t,x)
+hold on
+plot(t(1:2:end),decodedfix,'r')
+ylim([-1 1])
+xlabel("Time","FontSize",14)
+ylabel("Amplitude","FontSize",14)
+title("Input vs Output","FontSize",16)
+legend("Input Signal","Output Signal")
+
+
+
+
+%Quantizer
+function [quantized_signal,SQNR,vect] = Quantizer(sampled_signal,level)
+
+maxQ=round(max(sampled_signal));
+minQ=round(min(sampled_signal));
+delta=(maxQ-minQ)/level;
+vect=ones(1,level);
+pos=0;
+neg=0;
+for c=1:2:level
+vect(c)=pos+delta/2;
+pos=vect(c)+delta/2;
+vect(c+1)=neg-delta/2;
+neg=vect(c+1)-delta/2;
+end
+vect=sort(vect);
+
+ 
+for x=1:length(sampled_signal)
+    value=sampled_signal(x);
+    diffmax=abs(value-vect(1));
+    curr=vect(1);
+    for y=1:level
+     
+        diff=abs(value-vect(y));
+        if diff<diffmax
+            diffmax=diff;
+            curr=vect(y);
+        end
+    end
+    quantized_signal(x)=curr;
+  
+end
+
+SQNR=3*level*level;
+end
